@@ -95,7 +95,16 @@ class SyncObjConsumer(object):
 # https://github.com/bakwc/PySyncObj
 
 class SyncObj(object):
-    def __init__(self, uid, selfNode, otherNodes, sendFunc, conf=None, consumers=None, nodeClass = TCPNode, transport = None, transportClass = TCPTransport):
+    def __init__(self, 
+                 uid, 
+                 selfNode, 
+                 otherNodes, 
+                 sendFunc, 
+                 conf=None, 
+                 consumers=None, 
+                 nodeClass = TCPNode, 
+                 transport = None, 
+                 transportClass = TCPTransport):
         """
         Main SyncObj class, you should inherit your own class from it.
 
@@ -392,7 +401,7 @@ class SyncObj(object):
             self.removeNodeFromCluster(node, callback)
 
     def __onSetCodeVersion(self, newVersion):
-        print("being called")
+        # print("being called")
         methods = [m for m in dir(self) if callable(getattr(self, m)) and\
                    getattr(getattr(self, m), 'replicated', False) and \
                    m != getattr(getattr(self, m), 'origName')]
@@ -525,7 +534,7 @@ class SyncObj(object):
     #             if self.__destroying:
     #                 self._doDestroy()
     #                 break
-    #             self._onTick(self.__conf.autoTickPeriod)
+    #             self.onTick(self.__conf.autoTickPeriod)
     #     except ReferenceError:
     #         pass
 
@@ -537,10 +546,12 @@ class SyncObj(object):
         :type timeToWait: float
         """
         assert not self.__conf.autoTick
-        self._onTick(timeToWait)
+        self.onTick(timeToWait)
 
-    def _onTick(self, timeToWait=0.0):
-        print("on tick")
+    def onTick(self, timeToWait=0.0):
+        print("syncobj.onTick called")
+        print(f"syncobj.onTick: syncobj.__connectedNodes: {self.__connectedNodes}")
+        print(f"syncobj.onTick: syncobj.__otherNodes: {self.__otherNodes}")
         # if not self.__transport.ready:
         #     try:
         #         self.__transport.tryGetReady()
@@ -562,9 +573,10 @@ class SyncObj(object):
         if workTime > self.__numOneSecondDumps:
             self.__numOneSecondDumps += 1
             self.__raftLog.onOneSecondTimer()
-
+        
         if self.__raftState in (_RAFT_STATE.FOLLOWER, _RAFT_STATE.CANDIDATE) and self.__selfNode is not None:
-            print("leader election starting")
+            print("syncobj.onTick: leader election starting")
+            # print(self.__connectedToAnyone())
             if self.__raftElectionDeadline < monotonicTime() and self.__connectedToAnyone():
                 self.__raftElectionDeadline = monotonicTime() + self.__generateRaftTimeout()
                 self.__raftLeader = None
@@ -573,6 +585,7 @@ class SyncObj(object):
                 self.__votedForNodeId = self.__selfNode.id
                 self.__votesCount = 1
                 for node in self.__otherNodes:
+                    # print("Sending leader erection vote")
                     self.__send(self.__uid, node, {
                         'type': 'request_vote',
                         'term': self.__raftCurrentTerm,
@@ -840,7 +853,7 @@ class SyncObj(object):
 
         return self._idToMethod[funcID](*args, **kwargs)
 
-    def __onMessageReceived(self, node, message):
+    def onMessageReceived(self, node, message):
         print("on message received", node, message)
         if message['type'] == 'request_vote' and self.__selfNode is not None:
             print("request vote in on message received")
@@ -1029,10 +1042,14 @@ class SyncObj(object):
         self.__raftMatchIndex.pop(node, None)
         node._destroy()
 
-    def __onNodeConnected(self, node):
+    def onNodeConnected(self, node):
+        print('on Node Connected called')
         self.__connectedNodes.add(node)
+        print('onNodeConnected printing self.__connectedNodes')
+        print(self.__connectedNodes)
 
-    def __onNodeDisconnected(self, node):
+    def onNodeDisconnected(self, node):
+        print('on Node Disconnected called')
         self.__connectedNodes.discard(node)
 
      

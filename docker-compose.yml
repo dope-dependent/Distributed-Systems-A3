@@ -6,14 +6,20 @@ services:
       command: python broker.py b1 5000 5001 
       
       
+      
   b2:
       build: 
         dockerfile: ./test/Dockerfile 
         context: .
       command: python broker.py b2 5000 5001 b1 
+      depends_on: 
+        - b1
       
-  b3:
-      build: 
-        dockerfile: ./test/Dockerfile 
-        context: .
-      command: python broker.py b3 5000 5001 b1 b2 
+  # b3:
+  #     build: 
+  #       dockerfile: ./test/Dockerfile 
+  #       context: .
+  #     command: python broker.py b3 5000 5001 b1 b2 
+  #     depends_on: 
+  #       - b1 
+  #       - b2
