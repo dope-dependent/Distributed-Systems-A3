@@ -87,6 +87,7 @@ class TcpConnection(object):
             self.__state = CONNECTION_STATE.DISCONNECTED
             self.__fileno = None
             self.__socket = None
+        
 
         self.onConnected = onConnected                       # Changed to public
         self.onDisconnected = onDisconnected                 # Changed to public
@@ -145,7 +146,7 @@ class TcpConnection(object):
         return True
 
     def send(self, message):
-        print("connection ka send calling", message)
+        # print("connection ka send calling", message)
         if self.sendRandKey:
             message = (self.sendRandKey, message)
         data = zlib.compress(pickle.dumps(message), 3)
@@ -183,7 +184,7 @@ class TcpConnection(object):
         return len(self.__writeBuffer)
 
     def __processConnection(self, descr, eventType):
-        print("yeh ho rha hai", eventType)
+        # print("yeh ho rha hai", eventType)
         # print(POLL_EVENT_TYPE.ERROR)
         # print(POLL_EVENT_TYPE.WRITE)
         # print(POLL_EVENT_TYPE.READ)
@@ -191,29 +192,29 @@ class TcpConnection(object):
         
         poller = self.__poller
         if descr != self.__fileno:
-            print('socket 1')
+            # print('socket 1')
             poller.unsubscribe(descr)
             return
             
         if eventType & POLL_EVENT_TYPE.ERROR:
-            print('socket 2')
+            # print('socket 2')
             self.disconnect()
             return
 
         self.__processConnectionTimeout()
         
         if self.state == CONNECTION_STATE.DISCONNECTED:
-            print('socket 3')
+            # print('socket 3')
             return
 
         if eventType & POLL_EVENT_TYPE.READ or eventType & POLL_EVENT_TYPE.WRITE:
             if self.__socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR):
-                print('socket 4')
+                # print('socket 4')
                 self.disconnect()
                 return
 
             if self.__state == CONNECTION_STATE.CONNECTING:
-                print('socket 5')
+                # print('socket 5')
                 if self.onConnected is not None:
                     self.onConnected()
                 if self.__state == CONNECTION_STATE.DISCONNECTED:
@@ -223,7 +224,7 @@ class TcpConnection(object):
                 return
 
         if eventType & POLL_EVENT_TYPE.WRITE:
-            print('socket 6')
+            # print('socket 6')
             self.__trySendBuffer()
             if self.__state == CONNECTION_STATE.DISCONNECTED:
                 return
@@ -233,15 +234,14 @@ class TcpConnection(object):
             poller.subscribe(descr, self.__processConnection, event)
 
         if eventType & POLL_EVENT_TYPE.READ:
-            print('socket 7')
-            print("being called", self.__state)
+            # print('socket 7')
+            # print("being called", self.__state)
             self.__tryReadBuffer()
-            print("tried reading buffer")
+            # print("tried reading buffer")
             if self.__state == CONNECTION_STATE.DISCONNECTED:
                 return
             while True:
                 message = self.__processParseMessage()
-                
                 if message is None:
                     break
                 
@@ -250,22 +250,23 @@ class TcpConnection(object):
                         self.send({'__hostname__': self.__brokername})  
                     
                 if '__hostname__' in message:
-                    print('Got __hostname__ !!')
+                    # print('Got __hostname__ !!')
                     self.__onNewConnectionCallback(message['__hostname__'], self)
                
                 if '__raftmessage__' in message:
-                    print('Got __raftmessage__ !!')
-                    print(self.onMessageReceived)
+                    # print('Got __raftmessage__ !!')
+                    # print(message)
                     self.onMessageReceived(message['__partitionuid__'], message['__raftmessage__'])
                 
                 if self.__state == CONNECTION_STATE.DISCONNECTED:
                     return
 
     def __processConnectionTimeout(self):
-        print(monotonicTime())
-        print(self.__lastReadTime)
-        print(self.__timeout)
+        # print(monotonicTime())
+        # print(self.__lastReadTime)
+        # print(self.__timeout)
         if monotonicTime() - self.__lastReadTime > self.__timeout:
+            print('process connection timeout disconnect')
             self.disconnect()
             return
 
@@ -274,9 +275,9 @@ class TcpConnection(object):
         if self.state == CONNECTION_STATE.DISCONNECTED:
             return
         while self.__processSend():
-            print("in while __trySendBuffer")
+            # print("in while __trySendBuffer")
             pass
-        print("out of while loop __trySendBuffer")
+        # print("out of while loop __trySendBuffer")
 
     def __processSend(self):
         if not self.__writeBuffer:
@@ -285,6 +286,7 @@ class TcpConnection(object):
             # print("self.__socket.send kar rha hu")
             res = self.__socket.send(self.__writeBuffer)
             if res < 0:
+                print('procesSend returns error disconnect')
                 self.disconnect()
                 return False
             if res == 0:
@@ -292,6 +294,7 @@ class TcpConnection(object):
             self.__writeBuffer = self.__writeBuffer[res:]
             return True
         except socket.error as e:
+            print('procesSend returns error disconnect', e)
             if e.errno not in (socket.errno.EAGAIN, socket.errno.EWOULDBLOCK):
                 self.disconnect()
             return False
@@ -308,13 +311,16 @@ class TcpConnection(object):
         except socket.error as e:
             # print(e)
             if e.errno not in (socket.errno.EAGAIN, socket.errno.EWOULDBLOCK):
+                print('processRead returns error disconnect', e)
                 self.disconnect()
             return False
         # print("out of the blovking call")
         if self.__socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR):
+            print('processRead bad socket')
             self.disconnect()
             return False
         if not incoming:
+            print('processRead not incoming')
             self.disconnect()
             return False
         self.__readBuffer += incoming

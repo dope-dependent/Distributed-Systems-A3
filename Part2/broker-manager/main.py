@@ -79,43 +79,44 @@ def CreateNewTopic(topic: str, num = 1):
     """
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT * FROM all_brokers ORDER BY numberofmessages""")
+        cursor.execute("""SELECT * FROM all_brokers WHERE active = 1 ORDER BY numberofmessages""")
         all_brokers = cursor.fetchall()
+
         cursor.close()
+    
     except Exception as e:
-        print(e)
+        False, ServerErrorResponse('Brokers not available')
         
-
-    if len(all_brokers) == 0:
-        return False, ServerErrorResponse('no broker available')
-
+    if len(all_brokers) < 3:
+        return False, ServerErrorResponse('Brokers not available')
+    
+    all_brokers = [a[0] for a in all_brokers]
     partitions = {}
     j = 0
     for i in range(num):
-        while j<=1000*len(all_brokers):
-            response = requests.post("http://" + 'b' + str(all_brokers[j%len(all_brokers)][0]) + ':5000/partitions', 
-                                    json = {
-                                        "topic": topic, 
-                                        "partition": i,
-                                    },
-                                    headers = {'Content-Type': 'application/json'})
-            print(response.json()["message"])
+        currentBrokers = []
+        while len(currentBrokers) < 3:
+            currentBrokers.append(all_brokers[j])
+            j = (j + 1) % len(all_brokers)
+        
+        for broker in currentBrokers:
+            response = requests.post("http://" + str(broker) + ':5000/partitions', 
+                                json = {
+                                    "partition": topic + '_' + str(i),
+                                    "otherbrokers": [b for b in currentBrokers if b != broker]
+                                },
+                                headers = {'Content-Type': 'application/json'})
+
             if response.status_code == 200:
                 dictionary = {
-                    "broker" : all_brokers[j%len(all_brokers)][0],
-                    "numberofmessages":0,
+                    "brokers" : currentBrokers,
+                    "numberofmessages": 0,
                     "active": True
                 }
                 partitions[i] =  dictionary
-                break
-            time.sleep(180)
-        j+=1
-        if(j>1000*len(all_brokers)):
-            num = i-1
-            break
-        
-    if num==0:
-        return False, ServerErrorResponse('no broker available')
+
+        if response.status_code != 200:
+            return False, ServerErrorResponse('Brokers not available')
 
     cursor = conn.cursor()
     try:
@@ -376,6 +377,7 @@ def RegisterConsumer():
 
             consumerID = (consumers * (MAX_TOPICS) + topicID) * 10
             try:
+                print('START')
                 query = sql.SQL("""UPDATE all_topics SET consumers = {con} 
                                     WHERE topicname = {top}""").format(con = sql.Literal(consumers + 1), 
                                                                     top = sql.Literal(topic))
@@ -384,11 +386,13 @@ def RegisterConsumer():
                     cursor.close()
                     return ServerErrorResponse('error in registering consumer: broadcast failed')
                 
+                print('START 2')
                 offsets = {}
                 partitions = result[0][4]
                 for x in partitions:
                     offsets[x] = 1
                 
+                print('START 3')
                 col_names = sql.SQL(',').join(sql.Identifier(n) for n in ['consumerid', 'lit', 'partitionoffsets', 'lastindex'])
                 col_values = sql.SQL(',').join(sql.Literal(n) for n in [str(consumerID), int(time.time()),json.dumps(offsets),0])
                 # Add another producer to the global consumer list
@@ -396,25 +400,30 @@ def RegisterConsumer():
                                 VALUES ({col_values})""").format(col_names=col_names, col_values=col_values)
                             
                 cursor.execute(query)
+                print('START 4')
                 if Broadcast(query.as_string(conn)) == False:
                     cursor.close()
+                    semConsumerRegister.release()
                     return ServerErrorResponse('error in registering consumer: broadcast failed')
                 
+                print('START 5')
                 conn.commit()
                 response = GoodResponse({"status": "success", 
                                          "consumer_id": consumerID,
                                          "num_partitions": num_partitions})
-
+                print('START 6')
             except:
                 response = ServerErrorResponse('error in registering consumer')
+                print('EXCEPTION 7')
             finally:
                 semConsumerRegister.release()
                 cursor.close()
-
+    
     else:
         response = BadRequestResponse('topic not sent')
-    # print(response)
+    print(response)
     return response
+
 
 
 # Producer produces messages
@@ -485,22 +494,22 @@ def EnqueueMessage():
 
 
         # Send message request to the broker with this id
-        bid = ap[pindex]['broker'] 
+        bids = ap[pindex]['brokers'] 
+        for broker in bids:
+            br = requests.post("http://" +  str(broker) + ':5000/enqueue', 
+                                    json = {
+                                        "partition": topic + '_' + str(pindex), 
+                                        "message": message
+                                    },
+                                    headers = {'Content-Type': 'application/json'})
 
-        # Get broker response
-        br = requests.post("http://" + 'b' + str(bid) + ':5000/enqueue', 
-                                json = {
-                                    "topic": topic, 
-                                    "partition": pindex,
-                                    "message": message
-                                },
-                                headers = {'Content-Type': 'application/json'})
-
+            if br.status_code == 200:
+                break 
+        
         if br.json()['status'] == 'failure':
             return ServerErrorResponse(br.text['message'])
         
         # Generate new form of the metadata
-        
         semProduceMessage.acquire()
         cursor = conn.cursor()
 
@@ -521,9 +530,9 @@ def EnqueueMessage():
                 semProduceMessage.release()
                 return ServerErrorResponse("Failed to produce message")
 
-            cursor.execute("SELECT numberofmessages FROM all_brokers WHERE brokerid = %s", (bid, ))
-            nm = cursor.fetchall()[0][0]
-            cursor.execute("UPDATE all_brokers SET numberofmessages = %s WHERE brokerid = %s", (nm + 1, bid))
+            # cursor.execute("SELECT numberofmessages FROM all_brokers WHERE brokerid = %s", (bid, ))
+            # nm = cursor.fetchall()[0][0]
+            # cursor.execute("UPDATE all_brokers SET numberofmessages = %s WHERE brokerid = %s", (nm + 1, bid))
             conn.commit()
             response = GoodResponse({"status": "success"})
         except Exception as e:
@@ -560,23 +569,33 @@ def recordHeartbeat():
             epochtime = int(time.time())
             cursor.execute("UPDATE all_brokers SET lastheartbeat=%s WHERE brokerid = %s", (epochtime, data["id"]))
             conn.commit()
-        
 
+            # TODO update status of brokers        
             return GoodResponse({"status": "success"})
 
-
+# Edited
 @app.route('/broker/register', methods = ['POST'])
 def CreateBroker():
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT (*) FROM all_brokers")
-    id = cursor.fetchone()[0] + 1
-    cursor.execute("""INSERT INTO all_brokers (brokerid, lastheartbeat, numberofmessages, active) VALUES 
-        (%s, %s, 0, 1)""",(id, int(time.time())))
+    data = request.json
+    id = data['broker_id']
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT brokerid FROM all_brokers", (id, ))
+        result = cursor.fetchall()
+        result2 = [r[0] for r in result]
+        blist = [r for r in result2 if r!=id]
+        print(result2)
+        if id not in result2:
+            cursor.execute("""INSERT INTO all_brokers (brokerid, lastheartbeat, numberofmessages, active) VALUES 
+                (%s, %s, 0, 1)""",(id, int(time.time())))
+            conn.commit()
+        response = GoodResponse({'status':'success', 'brokers':blist})
+    except:
+        blist = []
+        response = ServerErrorResponse('Could not add broker')
+    return response
 
-
-    conn.commit()
-    return GoodResponse({'status':'success'})
-
+# TODO
 @app.route('/broker/remove', methods = ['POST'])
 def RemoveBroker():
     pass
@@ -652,7 +671,7 @@ if __name__ == "__main__":
             lit BIGINT)""")
         
         cursor.execute("""CREATE TABLE all_brokers(
-            brokerid SMALLINT PRIMARY KEY,
+            brokerid VARCHAR(255) PRIMARY KEY,
             lastheartbeat BIGINT,   
             numberofmessages BIGINT,
             active SMALLINT

@@ -405,7 +405,7 @@ class SyncObj(object):
         methods = [m for m in dir(self) if callable(getattr(self, m)) and\
                    getattr(getattr(self, m), 'replicated', False) and \
                    m != getattr(getattr(self, m), 'origName')]
-
+        # print(methods)
         self.__currentVersionFuncNames = {}
 
         funcVersions = collections.defaultdict(set)
@@ -414,15 +414,6 @@ class SyncObj(object):
             origFuncName = getattr(getattr(self, method), 'origName')
             funcVersions[origFuncName].add(ver)
 
-        for consumer in self.__consumers:
-            consumerID = id(consumer)
-            consumerMethods = [m for m in dir(consumer) if callable(getattr(consumer, m)) and \
-                               getattr(getattr(consumer, m), 'replicated', False)]
-            for method in consumerMethods:
-                ver = getattr(getattr(consumer, method), 'ver')
-                origFuncName = getattr(getattr(consumer, method), 'origName')
-                funcVersions[(consumerID, origFuncName)].add(ver)
-
             for funcName, versions in iteritems(funcVersions):
                 versions = sorted(list(versions))
                 for v in versions:
@@ -430,6 +421,24 @@ class SyncObj(object):
                         break
                     realFuncName = funcName[1] if isinstance(funcName, tuple) else funcName
                     self.__currentVersionFuncNames[funcName] = realFuncName + '_v' + str(v)
+
+        # print(self.__consumers)
+        # for consumer in self.__consumers:
+        #     consumerID = id(consumer)
+        #     consumerMethods = [m for m in dir(consumer) if callable(getattr(consumer, m)) and \
+        #                        getattr(getattr(consumer, m), 'replicated', False)]
+        #     for method in consumerMethods:
+        #         ver = getattr(getattr(consumer, method), 'ver')
+        #         origFuncName = getattr(getattr(consumer, method), 'origName')
+        #         funcVersions[(consumerID, origFuncName)].add(ver)
+
+        #     for funcName, versions in iteritems(funcVersions):
+        #         versions = sorted(list(versions))
+        #         for v in versions:
+        #             if v > newVersion:
+        #                 break
+        #             realFuncName = funcName[1] if isinstance(funcName, tuple) else funcName
+        #             self.__currentVersionFuncNames[funcName] = realFuncName + '_v' + str(v)
 
     def _getFuncName(self, funcName):
         return self.__currentVersionFuncNames[funcName]
@@ -549,9 +558,9 @@ class SyncObj(object):
         self.onTick(timeToWait)
 
     def onTick(self, timeToWait=0.0):
-        print("syncobj.onTick called")
-        print(f"syncobj.onTick: syncobj.__connectedNodes: {self.__connectedNodes}")
-        print(f"syncobj.onTick: syncobj.__otherNodes: {self.__otherNodes}")
+        # print("syncobj.onTick called")
+        # print(f"syncobj.onTick: syncobj.__connectedNodes: {self.__connectedNodes}")
+        # print(f"syncobj.onTick: syncobj.__otherNodes: {self.__otherNodes}")
         # if not self.__transport.ready:
         #     try:
         #         self.__transport.tryGetReady()
@@ -575,8 +584,9 @@ class SyncObj(object):
             self.__raftLog.onOneSecondTimer()
         
         if self.__raftState in (_RAFT_STATE.FOLLOWER, _RAFT_STATE.CANDIDATE) and self.__selfNode is not None:
-            print("syncobj.onTick: leader election starting")
+            # print("syncobj.onTick: leader election starting")
             # print(self.__connectedToAnyone())
+            # print(self.__raftElectionDeadline, monotonicTime())
             if self.__raftElectionDeadline < monotonicTime() and self.__connectedToAnyone():
                 self.__raftElectionDeadline = monotonicTime() + self.__generateRaftTimeout()
                 self.__raftLeader = None
@@ -854,9 +864,9 @@ class SyncObj(object):
         return self._idToMethod[funcID](*args, **kwargs)
 
     def onMessageReceived(self, node, message):
-        print("on message received", node, message)
+        # print("on message received", node, message)
         if message['type'] == 'request_vote' and self.__selfNode is not None:
-            print("request vote in on message received")
+            # print("request vote in on message received")
             if message['term'] > self.__raftCurrentTerm:
                 self.__raftCurrentTerm = message['term']
                 self.__votedForNodeId = None
@@ -882,6 +892,7 @@ class SyncObj(object):
                         'type': 'response_vote',
                         'term': message['term'],
                     })
+
 
         if message['type'] == 'append_entries' and message['term'] >= self.__raftCurrentTerm:
             self.__raftElectionDeadline = monotonicTime() + self.__generateRaftTimeout()
@@ -1049,7 +1060,7 @@ class SyncObj(object):
         print(self.__connectedNodes)
 
     def onNodeDisconnected(self, node):
-        print('on Node Disconnected called')
+        print(node, 'on Node Disconnected called')
         self.__connectedNodes.discard(node)
 
      
@@ -1436,6 +1447,9 @@ class SyncObj(object):
     #         self.__transport.addNode(node)
     #         self.__raftNextIndex[node] = self.__getCurrentLogIndex() + 1
     #         self.__raftMatchIndex[node] = 0
+
+    def getOtherNodes(self):
+        return self.__otherNodes
 
 def __copy_func(f, name):
     if is_py3:

@@ -34,6 +34,7 @@ class TcpServer(object):
         self.__connectionTimeout = connectionTimeout
 
     def bind(self):
+        print('start bind')
         self.__socket = socket.socket(self.__hostAddrType, socket.SOCK_STREAM)
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, self.__sendBufferSize)
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.__recvBufferSize)
@@ -48,7 +49,7 @@ class TcpServer(object):
                                 POLL_EVENT_TYPE.READ | POLL_EVENT_TYPE.ERROR)
         self.__state = SERVER_STATE.BINDED
 
-        print("server bound")
+        print("server bound ", self.__host, self.__port)
 
     def unbind(self):
         self.__state = SERVER_STATE.UNBINDED
@@ -77,7 +78,7 @@ class TcpServer(object):
                     keepalive=self.__keepalive,
                 )
                 # Edited by us
-                print("receiving connection")
+                print("receiving connection", addr)
                 conn.send({'__query__':'hostname'})
         
             except socket.error as e:

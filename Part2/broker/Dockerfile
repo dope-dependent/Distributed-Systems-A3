@@ -9,9 +9,17 @@ ENV PYTHONUNBUFFERED 1
 
 # install dependencies
 RUN pip install --upgrade pip
-COPY ./requirements.txt /usr/src/app/requirements.txt
+COPY ./Part2/broker/requirements.txt /usr/src/app/requirements.txt
 RUN pip install -r requirements.txt
-COPY ./responses.py /usr/src/app/responses.py
+COPY ./Part2/broker/responses.py /usr/src/app/responses.py
+
+ADD PySyncObj /usr/src/app/PySyncObj
+
+WORKDIR /usr/src/app/PySyncObj
+
+RUN python setup.py develop
+WORKDIR /usr/src/app/
+
+ADD ./Part2/broker /usr/src/app/
 
 # copy project
-COPY . /usr/src/app/

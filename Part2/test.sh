@@ -2,28 +2,31 @@
 # curl -X POST  -H 'Content-Type: application/json' http://127.0.0.1:5000/broker/register
 
 # create topic
-curl -X POST -d '{"name": "T-2", "partitions":7}' -H 'Content-Type: application/json' http://127.0.0.1:5000/topics
-curl -X POST -d '{"name": "T-1", "partitions":7}' -H 'Content-Type: application/json' http://127.0.0.1:5000/topics
-curl -X POST -d '{"name": "T-3", "partitions":7}' -H 'Content-Type: application/json' http://127.0.0.1:5000/topics
+# curl -X POST -d '{"name": "T-2", "partitions":7}' -H 'Content-Type: application/json' http://127.0.0.1:5000/topics
+# curl -X POST -d '{"name": "T-1", "partitions":7}' -H 'Content-Type: application/json' http://127.0.0.1:5000/topics
+# curl -X POST -d '{"name": "T-11", "partitions":7}' -H 'Content-Type: application/json' http://127.0.0.1:5000/topics
 
 #create broker manager
 # curl -X POST -d '{"ip": "rbm2", "managertype":"0"}' -H 'Content-Type: application/json' http://127.0.0.1:5000/managers/add
 
 
 #create producer and consumer
-# curl -X POST -d '{"topic": "T-2"}' -H 'Content-Type: application/json' http://127.0.0.1:5000/producer/register
-# curl -X POST -d '{"topic": "producer_signup"}' -H 'Content-Type: application/json' http://127.0.0.1:5000/consumer/register
+# curl -X POST -d '{"topic": "T-11"}' -H 'Content-Type: application/json' http://127.0.0.1:5000/producer/register
+# curl -X POST -d '{"topic": "T-11"}' -H 'Content-Type: application/json' http://127.0.0.1:5000/consumer/register
 
-# #produce two messages
-# curl -X POST -d '{"topic": "producer_login","producer_id":21, "message": "hello into partition 1 message 0", "partition":1}' -H 'Content-Type: application/json' http://127.0.0.1:5000/producer/produce
+#produce two messages
+# curl -X POST -d '{"topic": "T-11","producer_id":1000031, "message": "hello into partition 1 message 3", "partition":0}' -H 'Content-Type: application/json' http://127.0.0.1:5000/producer/produce
+# curl -X POST -d '{"topic": "T-11","producer_id":1000031, "message": "hello into partition 1 message 3", "partition":0}' -H 'Content-Type: application/json' http://127.0.0.1:5000/producer/produce
+
 # curl -X POST -d '{"topic": "producer_signup","producer_id":10000000000001, "message": "hello2"}' -H 'Content-Type: application/json' http://127.0.0.1:5000/producer/produce
 
 
 # #check size to be 2
-# curl -X GET  -d '{"topic": "producer_signup","consumer_id":10000000000000}' -H 'Content-Type: application/json' http://127.0.0.1:5000/size
+# curl -X GET  -d '{"topic": "T-11","consumer_id":3000030}' -H 'Content-Type: application/json' http://127.0.0.1:8080/size
 
 # first message to be retrieved
-# curl -X GET  -d '{"topic": "producer_login","consumer_id":1000020, "partition":1}' -H 'Content-Type: application/json' http://127.0.0.1:5002/consumer/consume
+
+# curl -X GET  -d '{"topic": "T-11","consumer_id":1000030, "partition":0}' -H 'Content-Type: application/json' http://127.0.0.1:8080/consumer/consume
 
 # #queue size should change to 1
 # curl -X GET  -d '{"topic": "producer_signup","consumer_id":10000000000000}' -H 'Content-Type: application/json' http://127.0.0.1:5000/size

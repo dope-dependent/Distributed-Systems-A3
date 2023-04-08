@@ -160,24 +160,31 @@ def DequeueMessage():
             offsets = result2[0][1]
             lastp = result2[0][2]
             message = ''
-            # print(result2)
+            print(result2)
             # Find the next active partition which has pending messages
             if 'partition' in data:
                 cp = data['partition']
                 nextp = cp
-                bid = partitions[str(cp)]["broker"]
-                        # Check if cp gets a response
-                response = requests.get("http://" + 'b' + str(bid) + ':5000/dequeue', 
-                            json = {
-                                "topic": topic, 
-                                "partition": cp,
-                                "offset": offsets[str(cp)]
-                            },
-                            headers = {'Content-Type': 'application/json'})
-                # print(response.json()['message'])
-                if response.json()['status'] == 'success':
+                bids = partitions[str(cp)]['brokers'] 
+                for broker in bids:
+                    print("http://" + str(broker) + ':5000/dequeue')
+                    br = requests.get("http://" + str(broker) + ':5000/dequeue', 
+                                            json = {
+                                                "partition": topic + '_' + str(cp), 
+                                                "offset": offsets[str(cp)]
+                                            },
+                                            headers = {'Content-Type': 'application/json'})
+                    if br.status_code == 200:
+                        break
+                
+                print(br.json())
+
+                if br.json()['status'] == 'failure':
+                    return ServerErrorResponse(br.json()['message'])
+                
+                if br.json()['status'] == 'success':
                     offsets[str(cp)] += 1
-                    message = response.json()['message']
+                    message = br.json()['message']
 
             else:
                 for i in range(len(partitions)):
@@ -187,32 +194,31 @@ def DequeueMessage():
                     # print(partitions[str(cp)])
                     if partitions[str(cp)]["active"] == True:
                         bid = partitions[str(cp)]["broker"]
+                        for broker in bid:
                         # Check if cp gets a response
-                        response = requests.get("http://" + 'b' + str(bid) + ':5000/dequeue', 
-                                    json = {
-                                        "topic": topic, 
-                                        "partition": cp,
-                                        "offset": offsets[str(cp)]
-                                    },
-                                    headers = {'Content-Type': 'application/json'})
-                        # print(response.json()['message'])
+                            response = requests.get("http://" + str(broker) + ':5000/dequeue', 
+                                        json = {
+                                            "partition": topic + '_' + str(cp),
+                                            "offset": offsets[str(cp)]
+                                        },
+                                        headers = {'Content-Type': 'application/json'})
+                            # print(response.json()['message'])
+                            if response.json()['status'] == 'success':
+                                offsets[str(cp)] += 1
+                                message = response.json()['message']
+                                break
+                        
                         if response.json()['status'] == 'success':
-                            offsets[str(cp)] += 1
-                            message = response.json()['message']
-                            break 
+                            break
+                    
+                    if response.json()['status'] == 'success':
+                        break
 
-                        else:
-                            print(response.json())
-            
             if message == '':
                 cursor.close()
                 return ServerErrorResponse('no message pending in queue')
             
-            # print(f"\n\n{DB_HOST} serving {consumer_id} message: {message}")
 
-            
-            # Find the next query from this partition
-            # Update all_consumers
             query = sql.SQL("""UPDATE all_consumers SET partitionoffsets = {off}, lastindex = {index}
                     WHERE consumerid = {id}""").format(off = sql.Literal(json.dumps(offsets)), 
                                                         index = sql.Literal(nextp), 
@@ -408,7 +414,7 @@ if __name__ == "__main__":
             )""")
         
         cursor.execute("""CREATE TABLE all_brokers(
-            brokerid SMALLINT PRIMARY KEY,
+            brokerid VARCHAR(255) PRIMARY KEY,
             lastheartbeat BIGINT,   
             numberofmessages BIGINT,
             active SMALLINT
