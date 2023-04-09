@@ -1054,13 +1054,13 @@ class SyncObj(object):
         node._destroy()
 
     def onNodeConnected(self, node):
-        print('on Node Connected called')
+        # print('on Node Connected called')
         self.__connectedNodes.add(node)
-        print('onNodeConnected printing self.__connectedNodes')
+        # print('onNodeConnected printing self.__connectedNodes')
         print(self.__connectedNodes)
 
     def onNodeDisconnected(self, node):
-        print(node, 'on Node Disconnected called')
+        # print(node, 'on Node Disconnected called')
         self.__connectedNodes.discard(node)
 
      

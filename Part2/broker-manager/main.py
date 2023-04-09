@@ -496,15 +496,18 @@ def EnqueueMessage():
         # Send message request to the broker with this id
         bids = ap[pindex]['brokers'] 
         for broker in bids:
-            br = requests.post("http://" +  str(broker) + ':5000/enqueue', 
-                                    json = {
-                                        "partition": topic + '_' + str(pindex), 
-                                        "message": message
-                                    },
-                                    headers = {'Content-Type': 'application/json'})
+            try:
+                br = requests.post("http://" +  str(broker) + ':5000/enqueue', 
+                                        json = {
+                                            "partition": topic + '_' + str(pindex), 
+                                            "message": message
+                                        },
+                                        headers = {'Content-Type': 'application/json'})
 
-            if br.status_code == 200:
-                break 
+                if br.status_code == 200:
+                    break 
+            except:
+                pass
         
         if br.json()['status'] == 'failure':
             return ServerErrorResponse(br.text['message'])
@@ -705,4 +708,4 @@ if __name__ == "__main__":
        WHERE table_schema = 'public'""")
 
     
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0',use_reloader=False )

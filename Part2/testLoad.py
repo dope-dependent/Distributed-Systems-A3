@@ -17,7 +17,7 @@ def consumer_func(consumer_id, topics : list):
     while count<20:
 
         for topic in topics:
-            time.sleep(1)
+            # time.sleep(1)
             log = consumer.getNextMessage(topic)
             if log is not None:
                 log_file.write(log + '\n')
@@ -35,7 +35,7 @@ def producer_func(producer_id, topics: list):
     for log in log_file:
 
         sleep_time = randint(20,60) / 60
-        time.sleep(sleep_time)
+        # time.sleep(sleep_time)
         topic = log.split()[2]
         partition = log.split()[3]
         producer.sendNewMessage(topic, log, partition) 
@@ -54,12 +54,12 @@ t8 = threading.Thread(target=consumer_func, args=(3,['T-1', 'T-2', 'T-3']))
 
 
 
-t1.start()
-t2.start()
-t3.start()
+# t1.start()
+# t2.start()
+# t3.start()
 
-t6.start()
-t7.start()
+# t6.start()
+# t7.start()
 t8.start()
 
 

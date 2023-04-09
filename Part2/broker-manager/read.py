@@ -160,7 +160,7 @@ def DequeueMessage():
             offsets = result2[0][1]
             lastp = result2[0][2]
             message = ''
-            print(result2)
+            # print(result2)
             # Find the next active partition which has pending messages
             if 'partition' in data:
                 cp = data['partition']
@@ -193,7 +193,8 @@ def DequeueMessage():
                     nextp = cp
                     # print(partitions[str(cp)])
                     if partitions[str(cp)]["active"] == True:
-                        bid = partitions[str(cp)]["broker"]
+                        bid = partitions[str(cp)]["brokers"]
+                        # print(bid)
                         for broker in bid:
                         # Check if cp gets a response
                             response = requests.get("http://" + str(broker) + ':5000/dequeue', 

@@ -48,7 +48,7 @@ global BROKER_MANAGER
 class Broker:
     def __init__(self, hostname, httpPort, raftPort, otherBrokers):
         hostAddress = socket.gethostbyname(hostname)
-        # print(hostAddress)
+        # print("broker starting",hostAddress)
         self.__selfNode = TCPNode(hostAddress+":"+raftPort)
         self.otherNodes = dict()
         self.__connections = dict()      # (brokername, conn)          
@@ -78,7 +78,7 @@ class Broker:
                 self.otherNodes[ob] = TCPNode(hostAddress+":"+self.__raftPort)  #add id to recognise
                 node = self.otherNodes[ob]
                 self.__connections[node] = self.__createConnection(node)
-                print(f'broker.onNewConnectionCallback: List of connections : {list(self.__connections.keys())}')
+                # print(f'broker.onNewConnectionCallback: List of connections : {list(self.__connections.keys())}')
                 # print("broker.__init__: connected with " + ob)
 
         self.__thread = threading.Thread(target=self.autoTick)
@@ -133,7 +133,7 @@ class Broker:
             if node in self.partitions[partition].getOtherNodes():
                 self.partitions[partition].onNodeConnected(node)
 
-        print(f'broker.onNewConnectionCallback: List of connections : {list(self.__connections.keys())}')
+        # print(f'broker.onNewConnectionCallback: List of connections : {list(self.__connections.keys())}')
 
 
     def send(self,partitionuid,node, message):
@@ -332,7 +332,7 @@ class Partition(SyncObj):
             cursor.execute(sql.SQL("""SELECT * FROM {table_name} WHERE messageid = {off}""").format(table_name = sql.Identifier(self._uid), 
                                                                                                     off = sql.Literal(offset)))
             message = cursor.fetchall()[0][1]
-            print(message)
+            # print(message)
             cursor.close()
             return message
         except Exception as e:
@@ -346,7 +346,7 @@ def RegisterNewPartition():
     data = request.json
     partition = data['partition']
     otherbrokers = data['otherbrokers']
-    print(partition)
+    # print(partition)s
     if partition in BROKER.partitions:
         print('Already present')
         response = ServerErrorResponse('Partition already present')
@@ -367,7 +367,7 @@ def RegisterNewPartition():
             sem.release()
     
     
-    print(response)
+    # print(response)
     return response   
 
 # Heartbeat done by another thread
@@ -395,12 +395,13 @@ def EnqueueMessage():
 
 @app.route("/dequeue", methods = ['GET'])
 def DequeueMessage():
+    # return ServerErrorResponse(str("not really an error just like that"))
     data = request.json
     partition = data['partition']
     offset = data['offset']
     try:
         message = BROKER.dequeue(partition, offset)
-        print(message)
+        # print(message)
         response = GoodResponse({"status": "success", "message": str(message)})
     except Exception as e:
         response = ServerErrorResponse(str(e))
@@ -409,7 +410,8 @@ def DequeueMessage():
 @app.route("/")
 def home():
     return "Hello, World from Broker!"
-    
+
+
 if __name__ == "__main__":
     print('BROKER STARTED')
     BROKER_ID = str(sys.argv[1])
@@ -438,11 +440,13 @@ if __name__ == "__main__":
             password="admin",
             dbname = DB_NAME
         )
-    for r in result:
-        BROKER.createNewPartition(r[0], r[1]['otherbrokers'])
+    
 
 
     heartbeat_thread = threading.Thread(target = Heartbeat)
     # heartbeat_thread.start()
-
+    for r in result:
+        BROKER.createNewPartition(r[0], r[1]['otherbrokers'])
     app.run(debug=True, host = '0.0.0.0', use_reloader=False)
+
+    

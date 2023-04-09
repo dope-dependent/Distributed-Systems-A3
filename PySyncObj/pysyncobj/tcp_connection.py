@@ -266,7 +266,7 @@ class TcpConnection(object):
         # print(self.__lastReadTime)
         # print(self.__timeout)
         if monotonicTime() - self.__lastReadTime > self.__timeout:
-            print('process connection timeout disconnect')
+            # print('process connection timeout disconnect')
             self.disconnect()
             return
 
@@ -286,7 +286,7 @@ class TcpConnection(object):
             # print("self.__socket.send kar rha hu")
             res = self.__socket.send(self.__writeBuffer)
             if res < 0:
-                print('procesSend returns error disconnect')
+                # print('procesSend returns error disconnect')
                 self.disconnect()
                 return False
             if res == 0:
@@ -294,7 +294,7 @@ class TcpConnection(object):
             self.__writeBuffer = self.__writeBuffer[res:]
             return True
         except socket.error as e:
-            print('procesSend returns error disconnect', e)
+            # print('procesSend returns error disconnect', e)
             if e.errno not in (socket.errno.EAGAIN, socket.errno.EWOULDBLOCK):
                 self.disconnect()
             return False
@@ -311,16 +311,16 @@ class TcpConnection(object):
         except socket.error as e:
             # print(e)
             if e.errno not in (socket.errno.EAGAIN, socket.errno.EWOULDBLOCK):
-                print('processRead returns error disconnect', e)
+                # print('processRead returns error disconnect', e)
                 self.disconnect()
             return False
         # print("out of the blovking call")
         if self.__socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR):
-            print('processRead bad socket')
+            # print('processRead bad socket')
             self.disconnect()
             return False
         if not incoming:
-            print('processRead not incoming')
+            # print('processRead not incoming')
             self.disconnect()
             return False
         self.__readBuffer += incoming
