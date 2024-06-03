@@ -5,6 +5,10 @@ This repository contains the implementation of Assignment 3 of the [Distributed 
 ### Deployment
 This system has been deployed on Docker. There can be other ways of deploying it as well, for example, a virtual machine for every host. 
 
+### Contributors
+[Rajas Bhatt](https://github.com/dope-dependent) (19CS30037)   
+[Seemant G. Achari](https://github.com/pasthorizon) (19CS30057)
+
 # Design and Documentation
 Design: [https://dope-dependent.github.io/Distributed-Systems-A3/Design.html](https://dope-dependent.github.io/Distributed-Systems-A3/Design.html)
 
